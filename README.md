@@ -15,19 +15,26 @@ Para el tratamiento de los nombres de películas, armaremos un suffix tree gener
 Para el caso de las sinopsis, al ser textos muy largos, usar el algoritmo de Ukkonen sería muy pesado, por lo que se podría implementar el uso de Inverted Index (O(1) apróximado) o Suffix Array (O(m log(n))) si se quiere tomar en cuenta subcadenas. Estos tienen una complejidad mayor en la busqueda pero la construcción de su estructura de datos (inserción) usa menos memoria, algo excelente para la cantidad de palabras de cada sinopsis.
 
 
----------------Instrucciones de Compilacion-----------------
+## Instrucciones de Compilacion
 Para poder ejecutar nuestro proyecto:
+```bash
 g++ -std=c++17 main.cpp -o programa
+```
 luego ejecutamos:
+```bash
 ./programa
-Y si estamos en windows-> 
+```
+Y si estamos en windows
+```powershell
 programa.exe
+```
 
-el archivo compilara sin errores siempre y cuando la base de datos se encuentre en :
+El archivo compilara sin errores siempre y cuando la base de datos se encuentre en :
 data/wiki_movie_plots_deduped.csv
 
 
-## Pseudocodigo
+## Pseudocodigo de construcción de suffix tree
+```
 ALGORITMO ConstruirSuffixTree(documento)
 
     Crear nodo raíz
@@ -184,4 +191,58 @@ ALGORITMO ConstruirSuffixTree(documento)
     Asignar suffixIndex a cada hoja
 
 FIN ALGORITMO
+```
 
+## Pseudocodigo de búsqueda
+```
+currNode ← raíz
+i ← 0 // índice para recorrer la subcadena
+
+MIENTRAS i < longitud(subcadena) HACER
+    
+    // buscar si existe una arista que empiece con el carácter actual
+    SI no existe hijo de currNode que empiece con subcadena[i] ENTONCES
+        RETORNAR lista vacía // La subcadena no existe
+    FIN SI
+
+    edge ← hijo correspondiente
+    j ← edge.start
+    
+    // comparar el patrón con los caracteres de la arista
+    MIENTRAS i < longitud(subcadena) Y j ≤ edge.end HACER
+        SI subcadena[i] ≠ textoGlobal[j] ENTONCES
+            RETORNAR lista vacía // mismatch en la arista
+        FIN SI
+        
+        i ← i + 1
+        j ← j + 1
+    FIN MIENTRAS
+
+    // si aún queda parte de la subcadena, pasamos al siguiente nodo
+    SI i < longitud(subcadena) ENTONCES
+        currNode ← edge
+    FIN SI
+
+FIN MIENTRAS
+
+
+resultados ← lista vacía
+
+
+SI i = longitud(subcadena) ENTONCES
+    RecolectarIDs(edge, resultados)
+FIN SI
+
+RETORNAR resultados
+```
+Algoritmo de RecolectarIDs:
+```
+SI nodo es hoja ENTONCES
+    resultados.agregar(nodo.movieID)
+SINO
+    // si es nodo interno, seguimos bajando por todos sus hijos
+    PARA cada hijo DE nodo HACER
+        RecolectarIDs(hijo, resultados)
+    FIN PARA
+FIN SI
+```
