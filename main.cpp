@@ -156,9 +156,9 @@ bool read_csv_record(std::ifstream& file, std::vector<std::string>& record) {
 
 int main() {
 
-    // ----------------- TEST DE NORMALIZACIÓN ----------------------------------
+    // ----------------- TEST DE NORMALIZACIoN ----------------------------------
 
-    std::cout << "=== TEST DE TRANSLITERACIÓN ===\n";
+    std::cout << "=== TEST DE TRANSLITERACION ===\n";
 
     std::cout << normalize_text("İstanbul Kırmızısı") << "\n";
     std::cout << normalize_text("Ñoño & Château") << "\n";
@@ -219,7 +219,7 @@ int main() {
               << " peliculas correctamente.\n\n";
 
 
-    // ================= MENÚ DE BÚSQUEDA =================
+    //------------------- MENÚ DE BÚSQUEDA ---------------------------
 
     while (true) {
 
@@ -250,7 +250,7 @@ int main() {
         std::cout
             << "--------- Titulo ---------"
             << std::setw(n)
-            << "--- Año ---"
+            << "--- Anio ---"
             << std::setw(n)
             << "--- Genero ---"
             << std::setw(n + 5)
