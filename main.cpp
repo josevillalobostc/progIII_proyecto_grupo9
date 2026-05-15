@@ -30,10 +30,10 @@ std::ostream& operator<<(std::ostream& os, const Movie& movie) {
 }
 
 /*
- Función para normalizar texto:
- - Convierte a minúsculas
- - Elimina signos de puntuación
- - Hace transliteración UTF-8
+ función que normaliza texto:
+ - convierte a minúsculas
+ - elimina signos de puntuación
+ - hace transliteración UTF-8
 */
 std::string normalize_text(std::string_view text) {
 
@@ -109,7 +109,7 @@ std::string normalize_text(std::string_view text) {
     return result;
 }
 
-// Lee un registro CSV manejando comas dentro de comillas
+// lee un registro CSV manejando comas dentro de comillas
 bool read_csv_record(std::ifstream& file, std::vector<std::string>& record) {
 
     record.clear();
@@ -166,7 +166,6 @@ int main() {
     std::cout << "-------------------------------------------\n\n";
 
 
-    // ================= CARGAR CSV =================
 
     std::ifstream file("data/wiki_movie_plots_deduped.csv");
 
@@ -178,7 +177,7 @@ int main() {
     std::vector<std::string> record;
     std::vector<Movie> database;
 
-    // Saltar cabecera
+    // saltar cabecera
     read_csv_record(file, record);
 
     int current_id = 0;
@@ -201,7 +200,7 @@ int main() {
 
             current_id++;
 
-            // Test primera película
+            // test primera pelicula
             if (movie.id == 0) {
 
                 std::cout << "--- TEST DE LECTURA ---\n";
@@ -236,7 +235,7 @@ int main() {
             break;
         }
 
-        // Validar rango
+        // validar rango
         if (numero < 0 || numero >= database.size()) {
 
             std::cout << "ID invalido\n\n";
