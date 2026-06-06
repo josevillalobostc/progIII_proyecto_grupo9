@@ -6,6 +6,8 @@
 #include <string_view>
 #include <string>
 #include <unordered_map>
+#include <memory>
+
 
 // estructura que almacena las peliculas ya procesadas
 struct Movie {
@@ -153,6 +155,49 @@ bool read_csv_record(std::ifstream& file, std::vector<std::string>& record) {
 
     return false;
 }
+
+struct SuffixNode{
+int start;
+  int* end;
+  SuffixNode* suffixLink;
+
+  SuffixNode(int start, int* end) : start(start), end(end), suffixLink(nullptr){}
+  virtual ~SuffixNode() = default;
+
+  virtual bool isLeaf() const = 0;
+  virtual void collectMovieIDs(std::vector<int>& results) const = 0;
+
+  int edgeLength() const {
+    if (start == -1) return 0;
+    return *end - start + 1;
+  }
+};
+
+
+struct LeafNode : public SuffixNode{
+int movieID;
+  LeafNode(int start, int* end, int movieID) : SuffixNode(start,end), movieID(movieID) {}
+
+  bool isLeaf() const override { return true;}
+
+  void collectMovieIDs(std::vector<int>& results) const override {
+    results.push_back(movieID);
+  }
+};
+
+struct InternalNode : public SuffixNode{
+  std::unordered_map<char, std::unique_ptr<SuffixNode>> children;
+  InternalNode(int start, int* end) : SuffixNode(start, end) {}
+  bool isLeaf() const override {return false;}
+
+  void collectMovieIDs(std::vector<int>& results) const override{
+    for(const auto& [edgeChar, child] : children) {
+      child -> collectMovieIDs(results);
+    }
+  }
+};
+
+
 
 int main() {
 
