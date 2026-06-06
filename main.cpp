@@ -198,6 +198,81 @@ struct InternalNode : public SuffixNode{
 };
 
 
+class GeneralizedSuffixTree{
+  std::unique_ptr<InternalNode> root;
+  std::string globalText;
+
+  SuffixNode* activeNode;
+  int activeEdge;
+  int activeLength;
+  int remainingSuffixCount;
+  int leafEnd;
+  int* rootEnd;
+
+  void extend(int pos, int currentMovieID){
+
+  }
+
+public:
+  GeneralizedSuffixTree() {
+    rootEnd = new int (-1);
+    root = std::make_unique<InternalNode>(-1, rootEnd);
+    activeNode= root.get();
+    activeEdge = -1;
+    activeLength = 0;
+    remainingSuffixCount = 0;
+    leafEnd = -1;
+  }
+  ~GeneralizedSuffixTree() {
+    delete rootEnd;
+  }
+
+  void insertText(std::string_view text, int movieID){
+    int startPos = globalText.length();
+    globalText += text;
+    globalText += "#";
+
+    for(int i = startPos; i < globalText.length(); ++i) {
+      extend(i, movieID);
+    }
+  }
+
+  std::vector<int> search(std::string_view substring) const {
+    std::vector<int> results;
+    if(substring.empty()) 
+      return results;
+    
+    SuffixNode* currNode = root.get();
+    int i = 0;
+
+    while (i < substring.length()) {
+      auto internalNode = dynamic_cast<InternalNode*>(currNode);
+      if (!internalNode || internalNode -> children.find(substring[i]) == internalNode -> children.end()) {
+        return results;
+      }
+
+      SuffixNode* edge = internalNode -> children[substring[i]].get();
+      int j = edge -> start;
+
+      while (i < substring.length() && j <= *(edge->end)) {
+                if (substring[i] != globalText[j]) {
+                    return results;
+                }
+                i++;
+                j++;
+            }
+
+            if (i < substring.length()) {
+                currNode = edge;
+            } else {
+                edge->collectMovieIDs(results);
+                return results;
+            }
+    }
+    return results;
+  }
+};
+
 
 int main() {
 
