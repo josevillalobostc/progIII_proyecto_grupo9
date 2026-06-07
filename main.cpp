@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <future>
 
 
 // estructura que almacena las peliculas ya procesadas
@@ -354,118 +355,138 @@ public:
   }
 };
 
-
 int main() {
 
-    // ----------------- TEST DE NORMALIZACIoN ----------------------------------
+  // ----------------- TEST DE NORMALIZACIoN ----------------------------------
 
-    std::cout << "=== TEST DE TRANSLITERACION ===\n";
+  std::cout << "=== TEST DE TRANSLITERACION ===\n";
 
-    std::cout << normalize_text("İstanbul Kırmızısı") << "\n";
-    std::cout << normalize_text("Ñoño & Château") << "\n";
+  std::cout << normalize_text("İstanbul Kırmızısı") << "\n";
+  std::cout << normalize_text("Ñoño & Château") << "\n";
 
-    std::cout << "-------------------------------------------\n\n";
+  std::cout << "-------------------------------------------\n\n";
 
+  std::ifstream file("data/wiki_movie_plots_deduped.csv");
 
+  if (!file.is_open()) {
+    std::cerr << "Error al abrir el archivo CSV\n";
+    return 1;
+  }
 
-    std::ifstream file("data/wiki_movie_plots_deduped.csv");
+  std::vector<std::string> record;
+  std::vector<Movie> database;
 
-    if (!file.is_open()) {
-        std::cerr << "Error al abrir el archivo CSV\n";
-        return 1;
+  // saltar cabecera
+  read_csv_record(file, record);
+
+  int current_id = 0;
+
+  while (read_csv_record(file, record)) {
+
+    if (record.size() >= 8) {
+
+      Movie movie;
+
+      movie.id = current_id;
+      movie.release_year = record[0];
+      movie.title = normalize_text(record[1]);
+      movie.director = normalize_text(record[3]);
+      movie.cast = normalize_text(record[4]);
+      movie.genre = normalize_text(record[5]);
+      movie.plot = normalize_text(record[7]);
+
+      database.push_back(movie);
+
+      current_id++;
+
+      // test primera pelicula
+      if (movie.id == 0) {
+
+        std::cout << "--- TEST DE LECTURA ---\n";
+
+        std::cout << "Titulo: " << movie.title << "\n";
+        std::cout << "Plot: " << movie.plot << "\n\n";
+      }
+    }
+  }
+
+  file.close();
+
+  std::cout << "Se cargaron " << database.size()
+            << " peliculas correctamente.\n\n";
+
+  GeneralizedSuffixTree titleTree;
+  GeneralizedSuffixTree directorTree;
+  GeneralizedSuffixTree castTree;
+
+  std::cout << "Creando árboles de sufijos";
+
+  auto buildTitle = std::async(std::launch::async, [&]() {
+    for (const auto &mov : database) {
+      if (!mov.title.empty()) {
+        titleTree.insertText(mov.title, mov.id);
+      }
+    }
+  });
+  auto buildDirector = std::async(std::launch::async, [&]() {
+    for (const auto &mov : database) {
+      if (!mov.director.empty() && mov.director != "unknown") {
+        titleTree.insertText(mov.director, mov.id);
+      }
+    }
+  });
+  auto buildCast = std::async(std::launch::async, [&]() {
+    for (const auto &mov : database) {
+      if (!mov.cast.empty() && mov.cast != "unknown") {
+        castTree.insertText(mov.cast, mov.id);
+      }
+    }
+  });
+
+  buildTitle.wait();
+  buildDirector.wait();
+  buildCast.wait();
+
+  std::cout << "Construccion finalizada";
+
+  //------------------- MENÚ DE BÚSQUEDA ---------------------------
+
+  while (true) {
+
+    int numero;
+    int n = 20;
+
+    std::cout << "---------------- Busqueda de peliculas ----------------\n";
+
+    std::cout << "Ingrese el ID de una pelicula (-1 para salir): ";
+
+    std::cin >> numero;
+
+    if (numero == -1) {
+      break;
     }
 
-    std::vector<std::string> record;
-    std::vector<Movie> database;
+    // validar rango
+    if (numero < 0 || numero >= database.size()) {
 
-    // saltar cabecera
-    read_csv_record(file, record);
-
-    int current_id = 0;
-
-    while (read_csv_record(file, record)) {
-
-        if (record.size() >= 8) {
-
-            Movie movie;
-
-            movie.id = current_id;
-            movie.release_year = record[0];
-            movie.title = normalize_text(record[1]);
-            movie.director = normalize_text(record[3]);
-            movie.cast = normalize_text(record[4]);
-            movie.genre = normalize_text(record[5]);
-            movie.plot = normalize_text(record[7]);
-
-            database.push_back(movie);
-
-            current_id++;
-
-            // test primera pelicula
-            if (movie.id == 0) {
-
-                std::cout << "--- TEST DE LECTURA ---\n";
-
-                std::cout << "Titulo: " << movie.title << "\n";
-                std::cout << "Plot: " << movie.plot << "\n\n";
-            }
-        }
+      std::cout << "ID invalido\n\n";
+      continue;
     }
 
-    file.close();
+    Movie mov = database[numero];
 
-    std::cout << "Se cargaron "
-              << database.size()
-              << " peliculas correctamente.\n\n";
+    std::cout << "\n\n";
 
+    std::cout << "--------- Titulo ---------" << std::setw(n) << "--- Anio ---"
+              << std::setw(n) << "--- Genero ---" << std::setw(n + 5)
+              << "----- Director -----" << std::endl;
 
-    //------------------- MENÚ DE BÚSQUEDA ---------------------------
+    std::cout << std::setw(n - 2) << mov.title << std::setw(n - 2)
+              << mov.release_year << std::setw(n - 1) << mov.genre
+              << std::setw(n + 6) << mov.director << std::endl;
 
-    while (true) {
+    std::cout << "\n\n";
+  }
 
-        int numero;
-        int n = 20;
-
-        std::cout << "---------------- Busqueda de peliculas ----------------\n";
-
-        std::cout << "Ingrese el ID de una pelicula (-1 para salir): ";
-
-        std::cin >> numero;
-
-        if (numero == -1) {
-            break;
-        }
-
-        // validar rango
-        if (numero < 0 || numero >= database.size()) {
-
-            std::cout << "ID invalido\n\n";
-            continue;
-        }
-
-        Movie mov = database[numero];
-
-        std::cout << "\n\n";
-
-        std::cout
-            << "--------- Titulo ---------"
-            << std::setw(n)
-            << "--- Anio ---"
-            << std::setw(n)
-            << "--- Genero ---"
-            << std::setw(n + 5)
-            << "----- Director -----"
-            << std::endl;
-
-        std::cout
-            << std::setw(n - 2) << mov.title
-            << std::setw(n - 2) << mov.release_year
-            << std::setw(n - 1) << mov.genre
-            << std::setw(n + 6) << mov.director
-            << std::endl;
-
-        std::cout << "\n\n";
-    }
-
-    return 0;
+  return 0;
 }
