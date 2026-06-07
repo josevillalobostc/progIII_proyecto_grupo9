@@ -23,12 +23,10 @@ struct Movie {
 
 // sobrecarga  para imprimir peliculas
 std::ostream& operator<<(std::ostream& os, const Movie& movie) {
-    os << movie.release_year << std::endl;
     os << movie.title << std::endl;
+    os << movie.release_year << std::endl;
     os << movie.genre << std::endl;
-    os << movie.director << std::endl;
-    os << movie.cast << std::endl;
-    os << movie.plot << std::endl;
+    os << movie.director;
     return os;
 }
 
@@ -312,6 +310,11 @@ public:
 
     documentEnds.push_back(std::move(currentEnd));
 
+    activeNode = root.get();
+    activeEdge = -1;
+    activeLength = 0;
+    remainingSuffixCount = 0;
+
     for(int i = startPos; i < globalText.length(); ++i) {
       // regla 1: las hojas crecen tras cada fase.
       (*currentEndPtr)++;
@@ -431,7 +434,7 @@ int main() {
   auto buildDirector = std::async(std::launch::async, [&]() {
     for (const auto &mov : database) {
       if (!mov.director.empty() && mov.director != "unknown") {
-        titleTree.insertText(mov.director, mov.id);
+        directorTree.insertText(mov.director, mov.id);
       }
     }
   });
@@ -447,44 +450,43 @@ int main() {
   buildDirector.wait();
   buildCast.wait();
 
-  std::cout << "Construccion finalizada";
+  std::cout << "Construccion finalizada\n";
 
   //------------------- MENÚ DE BÚSQUEDA ---------------------------
 
   while (true) {
 
-    int numero;
+    std::string pre_query;
     int n = 20;
 
     std::cout << "---------------- Busqueda de peliculas ----------------\n";
 
-    std::cout << "Ingrese el ID de una pelicula (-1 para salir): ";
+    std::cout << "Ingrese el texto a buscar ('salir' para terminar): ";
 
-    std::cin >> numero;
+    std::cin >> pre_query;
 
-    if (numero == -1) {
+    std::string query = normalize_text(pre_query);
+
+    if (query == "salir") {
       break;
     }
 
-    // validar rango
-    if (numero < 0 || numero >= database.size()) {
+    std::vector<int> resultados = titleTree.search(query);
 
-      std::cout << "ID invalido\n\n";
+    if (resultados.empty()) {
+      std::cout << "\nNo se encontraron coincidencias en los titulos.\n\n";
       continue;
     }
 
-    Movie mov = database[numero];
-
-    std::cout << "\n\n";
-
+    int limit = std::min(5, (int)resultados.size());
     std::cout << "--------- Titulo ---------" << std::setw(n) << "--- Anio ---"
               << std::setw(n) << "--- Genero ---" << std::setw(n + 5)
               << "----- Director -----" << std::endl;
 
-    std::cout << std::setw(n - 2) << mov.title << std::setw(n - 2)
-              << mov.release_year << std::setw(n - 1) << mov.genre
-              << std::setw(n + 6) << mov.director << std::endl;
-
+    for (int i = 0; i < limit; i++) {
+      Movie mov = database[resultados[i]];
+      std::cout << mov << std::endl << std::endl;
+    }
     std::cout << "\n\n";
   }
 
