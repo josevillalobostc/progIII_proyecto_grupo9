@@ -157,39 +157,44 @@ bool read_csv_record(std::ifstream& file, std::vector<std::string>& record) {
 }
 
 struct SuffixNode{
-int start;
-  int* end;
+  int start;
   SuffixNode* suffixLink;
 
-  SuffixNode(int start, int* end) : start(start), end(end), suffixLink(nullptr){}
+  SuffixNode(int start) : start(start), suffixLink(nullptr){}
   virtual ~SuffixNode() = default;
 
   virtual bool isLeaf() const = 0;
   virtual void collectMovieIDs(std::vector<int>& results) const = 0;
+  virtual int getEnd() const = 0;
 
   int edgeLength() const {
     if (start == -1) return 0;
-    return *end - start + 1;
+    return getEnd() - start + 1;
   }
 };
 
 
 struct LeafNode : public SuffixNode{
-int movieID;
-  LeafNode(int start, int* end, int movieID) : SuffixNode(start,end), movieID(movieID) {}
+  int movieID;
+  int* dynamicEnd;
+  
+  LeafNode(int start, int* dynamicEnd, int movieID) : SuffixNode(start), movieID(movieID), dynamicEnd(dynamicEnd) {}
 
   bool isLeaf() const override { return true;}
-
+  int getEnd() const override {return *dynamicEnd;}
   void collectMovieIDs(std::vector<int>& results) const override {
     results.push_back(movieID);
   }
 };
 
 struct InternalNode : public SuffixNode{
+  int fixedEnd;
   std::unordered_map<char, std::unique_ptr<SuffixNode>> children;
-  InternalNode(int start, int* end) : SuffixNode(start, end) {}
-  bool isLeaf() const override {return false;}
 
+  InternalNode(int start, int fixedEnd) : SuffixNode(start), fixedEnd(fixedEnd) {}
+ 
+  bool isLeaf() const override {return false;}
+  int getEnd() const override {return fixedEnd;}
   void collectMovieIDs(std::vector<int>& results) const override{
     for(const auto& [edgeChar, child] : children) {
       child -> collectMovieIDs(results);
@@ -202,29 +207,98 @@ class GeneralizedSuffixTree{
   std::unique_ptr<InternalNode> root;
   std::string globalText;
 
+  std::vector<std::unique_ptr<int>> documentEnds;
+
   SuffixNode* activeNode;
   int activeEdge;
   int activeLength;
   int remainingSuffixCount;
-  int leafEnd;
-  int* rootEnd;
 
-  void extend(int pos, int currentMovieID){
+  void extend(int pos, int currentMovieID, int *currentDocumentEnd) {
+    remainingSuffixCount++;
+    SuffixNode *lastNewNode = nullptr;
 
+    while (remainingSuffixCount > 0) {
+      if (activeLength == 0) {
+        activeEdge = pos;
+      }
+
+      InternalNode *internalActive = static_cast<InternalNode *>(activeNode);
+
+      auto it = internalActive->children.find(globalText[activeEdge]);
+
+      if (it == internalActive->children.end()) {
+        // regla 2 : Si no existe arista, se crea una nueva hoja.
+        auto newLeaf =
+            std::make_unique<LeafNode>(pos, currentDocumentEnd, currentMovieID);
+        internalActive->children[globalText[activeEdge]] = std::move(newLeaf);
+
+        if (lastNewNode != nullptr) {
+          lastNewNode->suffixLink = activeNode;
+          lastNewNode = nullptr;
+        }
+      } else {
+        SuffixNode *next = it->second.get();
+        int edge_len = next->edgeLength();
+
+        if (activeLength >= edge_len) {
+          activeEdge += edge_len;
+          activeLength -= edge_len;
+          activeNode = next;
+          continue;
+        }
+
+        if (globalText[next->start + activeLength] == globalText[pos]) {
+          // regla 3: Si ya existe en el camino, se detiene la fase.
+          if (lastNewNode != nullptr && activeNode != root.get()) {
+            lastNewNode->suffixLink = activeNode;
+            lastNewNode = nullptr;
+          }
+          activeLength++;
+          break;
+        }
+        // regla 2: Si difiere en media arista, se realiza un split.
+
+        int splitEndValue = next->start + activeLength - 1;
+        auto splitNode =
+            std::make_unique<InternalNode>(next->start, splitEndValue);
+        InternalNode* splitRaw = splitNode.get();
+
+        std::unique_ptr<SuffixNode> nextPtr = std::move(it->second);
+        internalActive->children[globalText[activeEdge]] = std::move(splitNode);
+
+        auto newLeaf =
+            std::make_unique<LeafNode>(pos, currentDocumentEnd, currentMovieID);
+        splitRaw->children[globalText[pos]] = std::move(newLeaf);
+
+        next->start += activeLength;
+        splitRaw->children[globalText[next->start]] = std::move(nextPtr);
+
+        if (lastNewNode != nullptr) {
+          lastNewNode->suffixLink = splitRaw;
+        }
+        lastNewNode = splitRaw;
+      }
+
+      remainingSuffixCount--;
+
+      if (activeNode == root.get() && activeLength > 0) {
+        activeLength--;
+        activeEdge = pos - remainingSuffixCount + 1;
+      } else if (activeNode != root.get()) {
+        activeNode =
+            activeNode->suffixLink ? activeNode->suffixLink : root.get();
+      }
+    }
   }
 
 public:
   GeneralizedSuffixTree() {
-    rootEnd = new int (-1);
-    root = std::make_unique<InternalNode>(-1, rootEnd);
+    root = std::make_unique<InternalNode>(-1, -1);
     activeNode= root.get();
     activeEdge = -1;
     activeLength = 0;
     remainingSuffixCount = 0;
-    leafEnd = -1;
-  }
-  ~GeneralizedSuffixTree() {
-    delete rootEnd;
   }
 
   void insertText(std::string_view text, int movieID){
@@ -232,8 +306,15 @@ public:
     globalText += text;
     globalText += "#";
 
+    auto currentEnd = std::make_unique<int>(startPos - 1);
+    int* currentEndPtr = currentEnd.get();
+
+    documentEnds.push_back(std::move(currentEnd));
+
     for(int i = startPos; i < globalText.length(); ++i) {
-      extend(i, movieID);
+      // regla 1: las hojas crecen tras cada fase.
+      (*currentEndPtr)++;
+      extend(i, movieID, currentEndPtr);
     }
   }
 
@@ -254,7 +335,7 @@ public:
       SuffixNode* edge = internalNode -> children[substring[i]].get();
       int j = edge -> start;
 
-      while (i < substring.length() && j <= *(edge->end)) {
+      while (i < substring.length() && j <= edge->getEnd()) {
                 if (substring[i] != globalText[j]) {
                     return results;
                 }
