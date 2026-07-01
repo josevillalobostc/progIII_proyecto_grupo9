@@ -247,3 +247,26 @@ SINO
     FIN PARA
 FIN SI
 ```
+## Frontend, Decorator y Observer
+
+La interfaz del proyecto se implementó mediante una consola interactiva. Permitiendo buscar películas, mostrar resultados paginados de cinco en cinco, seleccionar una película, visualizar su sinopsis y ejecutar acciones como Like (me gusta) o Ver más tarde.
+
+### Patrón Decorator
+
+Se aplicó el patrón Decorator para construir la visualización de una película por capas. La clase `MovieRenderer` define la interfaz base. `BasicMovieRenderer` muestra los datos principales de la película. Luego, `SynopsisDecorator` agrega la sinopsis y `ActionButtonsDecorator` agrega las opciones interactivas.
+
+Esto permite extender la forma de mostrar una película sin modificar la estructura `Movie` ni duplicar código.
+
+### Patrón Observer
+
+Se aplicó el patrón Observer para conectar las acciones del usuario con el gestor de películas del usuario. La clase `ConsoleUI` emite eventos cuando el usuario selecciona Like o Ver más tarde. La clase `UserMovieManager`, registrada como observadora, recibe esos eventos y actualiza las listas correspondientes.
+
+De esta forma, la interfaz queda desacoplada de la lógica de gestión de usuario.
+
+### Paginación
+
+Los resultados de búsqueda se muestran en grupos de cinco películas. El usuario puede avanzar a los siguientes cinco resultados o seleccionar una película del grupo actual para ver su detalle.
+
+### Recomendación basada en contenido
+
+Se implementó un algoritmo Content-Based. Cada película se representa mediante un perfil de palabras obtenido de su título, género, director, casting y sinopsis. Cuando el usuario da Like a una película, el sistema compara ese perfil con el de las demás películas usando similitud de Jaccard. Las películas con mayor similitud se muestran como recomendaciones.
