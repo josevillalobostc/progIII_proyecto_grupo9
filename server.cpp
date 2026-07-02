@@ -81,7 +81,7 @@ std::string fallback(const std::string& s, const std::string& def = "Desconocido
 // la web el usuario puede tocar el botón Like dos veces para
 // alternar el estado, algo que la versión de consola no requería.
 // ================================================================
-class SessionManager : public UserActionObserver {
+class WebSessionManager : public UserActionObserver {
 private:
     std::unordered_set<int> likedMovies;
     std::unordered_set<int> watchLaterMovies;
@@ -132,7 +132,7 @@ public:
 // ================================================================
 // 3) RECOMENDACIONES (misma lógica de recommend_movies() del
 //    archivo original, adaptada para recibir sets sueltos en vez
-//    de un UserMovieManager, ya que SessionManager permite remover)
+//    de un UserMovieManager, ya que WebSessionManager permite remover)
 // ================================================================
 std::vector<int> recommend_from_sets(
     const std::vector<Movie>& database,
@@ -191,7 +191,7 @@ std::string json_escape(const std::string& s) {
 
 // Tarjeta resumida: para listas de resultados / ver más tarde / recomendadas
 std::string movie_summary_json(int id, const std::vector<Movie>& database,
-                                const SessionManager& session) {
+                                const WebSessionManager& session) {
     const DisplayInfo& d = displayDb[id];
     std::ostringstream j;
     j << "{"
@@ -207,7 +207,7 @@ std::string movie_summary_json(int id, const std::vector<Movie>& database,
 }
 
 // Detalle completo: para el modal de sinopsis
-std::string movie_detail_json(int id, const SessionManager& session) {
+std::string movie_detail_json(int id, const WebSessionManager& session) {
     const DisplayInfo& d = displayDb[id];
     std::ostringstream j;
     j << "{"
@@ -226,7 +226,7 @@ std::string movie_detail_json(int id, const SessionManager& session) {
 
 template <typename Container>
 std::string movie_list_json(const Container& ids, const std::vector<Movie>& database,
-                             const SessionManager& session, size_t limit) {
+                             const WebSessionManager& session, size_t limit) {
     std::ostringstream j;
     j << "[";
     size_t count = 0;
@@ -331,7 +331,7 @@ int main() {
     buildGenre.wait();
     std::cout << "Arboles listos.\n";
 
-    SessionManager session;   // Observer: una sola sesion global (sin login),
+    WebSessionManager session;   // Observer: una sola sesion global (sin login),
                               // suficiente para la maqueta de exposicion.
 
     httplib::Server svr;
