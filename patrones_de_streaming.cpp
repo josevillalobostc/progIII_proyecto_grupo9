@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "SessionManager.h"
+#include "SearchHistory.h"
 
 struct Movie {
     int id;
@@ -383,26 +385,32 @@ public:
 
 class UserMovieManager : public UserActionObserver {
 private:
-    std::unordered_set<int> likedMovies;
-    std::unordered_set<int> watchLaterMovies;
+    SessionManager<int> likedMovies;
+    SessionManager<int> watchLaterMovies;
 
 public:
     void onLike(int movieID) override {
-        likedMovies.insert(movieID);
+        if (likedMovies.add(movieID)) {
         std::cout << "Pelicula agregada a Like.\n";
+        } else {
+        std::cout << "La pelicula ya estaba en Likes.\n";
+        }
     }
 
     void onWatchLater(int movieID) override {
-        watchLaterMovies.insert(movieID);
+        if (watchLaterMovies.add(movieID)) {
         std::cout << "Pelicula agregada a Ver mas tarde.\n";
+        } else {
+        std::cout << "La pelicula ya estaba guardada.\n";
+        }
     }
 
     const std::unordered_set<int>& getLikedMovies() const {
-        return likedMovies;
+        return likedMovies.getItems();
     }
 
     const std::unordered_set<int>& getWatchLaterMovies() const {
-        return watchLaterMovies;
+        return watchLaterMovies.getItems();
     }
 };
 
@@ -752,6 +760,7 @@ int run_streaming_app() {
 
     ConsoleUI ui;
     UserMovieManager userManager;
+    SearchHistory searchHistory;
 
     ui.addObserver(&userManager);
 
@@ -760,6 +769,7 @@ int run_streaming_app() {
         std::cout << "1. Buscar pelicula\n";
         std::cout << "2. Ver peliculas guardadas en Ver mas tarde\n";
         std::cout << "3. Ver recomendaciones por Likes\n";
+        std::cout << "4. Ver historial de busquedas\n";
         std::cout << "0. Salir\n";
         std::cout << "Opcion: ";
 
@@ -779,7 +789,7 @@ int run_streaming_app() {
             std::getline(std::cin, pre_query);
 
             std::string query = normalize_text(pre_query);
-
+            searchHistory.addSearch(pre_query);
             std::vector<int> results = ranked_search(
                 query,
                 titleTree,
@@ -799,6 +809,8 @@ int run_streaming_app() {
                 recommend_movies(database, userManager);
 
             ui.showPaginatedResults(recommendations, database);
+        }else if (option == 4) {
+            searchHistory.showHistory();
         }
     }
 
