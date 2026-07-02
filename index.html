@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VICHO,JOTA Y KLIM PLATAFORM — Plataforma de Streaming</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       BARRA SUPERIOR
+  ============================================================= -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">N</span>
+      <span class="brand-name">VICHO,JOTA Y KLIM PLATAFORM</span>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" class="search-input"
+             placeholder="Buscar por título, género, director o actor...">
+      <button id="searchBtn" class="btn btn-primary">Buscar</button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ============================================================
+         SECCIÓN: RESULTADOS DE BÚSQUEDA
+    ============================================================= -->
+    <section class="section" id="resultsSection">
+      <div class="section-header">
+        <h2>Resultados de búsqueda</h2>
+        <span class="section-hint" id="resultsCount"></span>
+      </div>
+      <div class="cards-grid" id="resultsGrid">
+        <!-- tarjetas generadas por JS -->
+      </div>
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline">← Anteriores 5</button>
+        <span id="pageInfo" class="page-info">Página 1</span>
+        <button id="nextBtn" class="btn btn-outline">Siguientes 5 →</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECCIÓN: VER MÁS TARDE
+    ============================================================= -->
+    <section class="section" id="watchLaterSection">
+      <div class="section-header">
+        <h2>Ver más tarde</h2>
+        <span class="section-hint" id="watchLaterCount"></span>
+      </div>
+      <div class="cards-row" id="watchLaterGrid">
+        <p class="empty-msg" id="watchLaterEmpty">Aún no guardaste películas para ver más tarde.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECCIÓN: RECOMENDADAS PARA TI
+    ============================================================= -->
+    <section class="section" id="recommendedSection">
+      <div class="section-header">
+        <h2>Recomendadas para ti</h2>
+        <span class="section-hint" id="recommendedHint">Basado en tus Likes</span>
+      </div>
+      <div class="cards-row" id="recommendedGrid">
+        <p class="empty-msg" id="recommendedEmpty">Dale Like a una película para recibir recomendaciones.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================
+       MODAL DE DETALLE / SINOPSIS
+  ============================================================= -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="modal-close" id="modalClose" aria-label="Cerrar">&times;</button>
+      <h2 id="modalTitle" class="modal-title"></h2>
+      <div class="modal-meta">
+        <span id="modalYear"></span>
+        <span class="dot">•</span>
+        <span id="modalGenre"></span>
+        <span class="dot">•</span>
+        <span id="modalDirector"></span>
+      </div>
+      <p class="modal-cast"><strong>Reparto:</strong> <span id="modalCast"></span></p>
+      <p class="modal-plot" id="modalPlot"></p>
+      <div class="modal-actions">
+        <button class="btn btn-like" id="modalLikeBtn">♥ Like</button>
+        <button class="btn btn-outline" id="modalWatchLaterBtn">+ Ver más tarde</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Proyecto final — Programación III · Frontend maqueta (HTML + CSS + JS puro), pensado para integrarse a un backend en C++.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

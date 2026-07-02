@@ -6,6 +6,16 @@ Repositorio: https://github.com/josevillalobostc/progIII_proyecto_grupo9
 * Keyra Amira Huamanyauri Alvarado
 * José Luis Villalobos Jiménez
 
+proyecto/
+├── server.cpp                     
+├── patrones_de_streaming.cpp       
+├── httplib.h                       
+├── data/
+│   └── wiki_movie_plots_deduped.csv   
+├── index.html
+├── styles.css
+└── app.js                        
+
 
 ## Preprocesamiento de datos
 Para tratar la data, se pasó todo a minúsculas, se quitó cualquier símbolo extraño, y se cambiaron letras de otros alfabetos como İ a una variante universal como i.
@@ -19,21 +29,21 @@ Para el caso de las sinopsis, al ser textos muy largos, usar el algoritmo de Ukk
 ## Instrucciones de Compilacion
 Para poder ejecutar nuestro proyecto:
 ```bash
-g++ -std=c++17 main.cpp -o programa
+g++ -std=c++17 -O2 server.cpp -o server.exe -lws2_32
 ```
 luego ejecutamos:
 ```bash
-./programa
+./server
 ```
 Y si estamos en windows
 ```powershell
-programa.exe
+server.exe
 ```
 
 El archivo compilara sin errores siempre y cuando la base de datos se encuentre en :
-data/wiki_movie_plots_deduped.csv
+data/wiki_movie_plots_deduped.csv y tener en cuenta que para entrar en la interfaz hacer doble click en index.html o arrastralo a su buscador de confianza. 
 
-
+NO ABRIR LOCAL HOST ya que se encontrará en blanco (no es endpoint)
 ## Pseudocodigo de construcción de suffix tree
 ```
 ALGORITMO ConstruirSuffixTree(documento)
@@ -270,3 +280,46 @@ Los resultados de búsqueda se muestran en grupos de cinco películas. El usuari
 ### Recomendación basada en contenido
 
 Se implementó un algoritmo Content-Based. Cada película se representa mediante un perfil de palabras obtenido de su título, género, director, casting y sinopsis. Cuando el usuario da Like a una película, el sistema compara ese perfil con el de las demás películas usando similitud de Jaccard. Las películas con mayor similitud se muestran como recomendaciones.
+
+## Para abrir el frontend
+Abre index.html directamente en el navegador (doble click) o sírvelo
+con cualquier servidor estático, por ejemplo:
+
+bashpython3 -m http.server 5500
+
+y entra a http://localhost:5500.
+
+El app.js ya apunta a http://localhost:8080/api, así que mientras
+server esté corriendo, el buscador, el Like, el Ver más tarde y las
+recomendaciones funcionan con datos reales del CSV, no con el arreglo
+de ejemplo que tenía la versión anterior.
+
+Qué cambió respecto a la maqueta anterior
+
+
+Ya no hay un array MOVIES hardcodeado en app.js: todo viene de fetch() al servidor.
+likedMovies / watchLaterMovies ya no viven en localStorage: 
+viven en el servidor (SessionManager, en server.cpp), que es
+quien implementa el patrón Observer (onLike / onWatchLater),
+igual que UserMovieManager en tu código de consola.
+La búsqueda ya no filtra en JavaScript: llama a ranked_search(),
+que usa tu GeneralizedSuffixTree tal cual la escribiste.
+Las recomendaciones ya no son un cálculo simple en JS: usan
+build_content_profile() + jaccard_similarity(), las mismas
+funciones de tu archivo original.
+
+
+Endpoints disponibles
+
+Método                            Ruta                                   Uso
+GET                             /api/health             Verifica que el servidor está vivo
+GET                    /api/search?q=texto&limit=100    Búsqueda (título/director/cast/género)
+GET             /api/movies/:id                         Detalle completo (para el modal)
+POST                /api/movies/:id/likeAlterna         Like
+POST                /api/movies/:id/watch-later         Alterna Ver más tarde
+GET             /api/watch-later                        Lista de guardadas
+GET                     /api/recommendations?limit=20   Recomendaciones por Like
+
+OJO AL PIOJO:
+SessionManager guarda los Likes / Ver más tarde en memoria, para una sola sesión global (sin login).
+Si se reinicia el servidor, esos datos se pierden — igual que en la versión de consola, donde tampoco se guardaban entre ejecuciones.
