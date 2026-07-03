@@ -87,17 +87,15 @@ private:
     SessionManager<int> watchLaterMovies;
     mutable std::mutex mtx;
 
-    // 1. Constructor privado (nadie más puede crear otra sesión)
     WebSessionManager() = default;
 
 public:
-    // 2. Prevenir clonación o copias de la instancia
     WebSessionManager(const WebSessionManager&) = delete;
     WebSessionManager& operator=(const WebSessionManager&) = delete;
 
-    // 3. Punto de acceso global (Patrón Singleton)
+  // SINGLETON
     static WebSessionManager& getInstance() {
-        static WebSessionManager instance; // C++11 garantiza que esto es "thread-safe"
+        static WebSessionManager instance;
         return instance;
     }
 
@@ -142,11 +140,6 @@ public:
     }
 };
 
-// ================================================================
-// 3) RECOMENDACIONES (misma lógica de recommend_movies() del
-//    archivo original, adaptada para recibir sets sueltos en vez
-//    de un UserMovieManager, ya que WebSessionManager permite remover)
-// ================================================================
 std::vector<std::unordered_set<std::string>> precomputed_profiles;
 
 std::vector<int> recommend_from_sets(
@@ -159,7 +152,6 @@ std::vector<int> recommend_from_sets(
     std::vector<std::pair<int, double>> scored;
     std::mutex mtx;
 
-    // Paralelizamos el cálculo de puntajes (jaccard_similarity)
     int num_threads = std::thread::hardware_concurrency();
     if(num_threads == 0) num_threads = 4;
     std::vector<std::future<void>> futures;
@@ -202,9 +194,6 @@ std::vector<int> recommend_from_sets(
     return result;
 }
 
-// ================================================================
-// 4) SERIALIZACIÓN A JSON (a mano, sin librerías externas)
-// ================================================================
 std::string json_escape(const std::string& s) {
     std::ostringstream out;
     for (char c : s) {
@@ -222,7 +211,6 @@ std::string json_escape(const std::string& s) {
     return out.str();
 }
 
-// Tarjeta resumida: para listas de resultados / ver más tarde / recomendadas
 std::string movie_summary_json(int id, const std::vector<Movie>& database,
                                 const WebSessionManager& session) {
     const DisplayInfo& d = displayDb[id];
@@ -239,7 +227,6 @@ std::string movie_summary_json(int id, const std::vector<Movie>& database,
     return j.str();
 }
 
-// Detalle completo: para el modal de sinopsis
 std::string movie_detail_json(int id, const WebSessionManager& session) {
     const DisplayInfo& d = displayDb[id];
     std::ostringstream j;
@@ -276,10 +263,6 @@ std::string movie_list_json(const Container& ids, const std::vector<Movie>& data
     return j.str();
 }
 
-// ================================================================
-// 5) CARGA DE LA BASE DE DATOS (mismo criterio que run_streaming_app,
-//    pero además llenamos displayDb con el texto original del CSV)
-// ================================================================
 bool load_database(const std::string& csvPath, std::vector<Movie>& database) {
     std::ifstream file(csvPath);
     if (!file.is_open()) {
@@ -288,7 +271,7 @@ bool load_database(const std::string& csvPath, std::vector<Movie>& database) {
     }
 
     std::vector<std::string> record;
-    read_csv_record(file, record); // descartar cabecera
+    read_csv_record(file, record);
 
     int current_id = 0;
 
@@ -321,9 +304,6 @@ bool load_database(const std::string& csvPath, std::vector<Movie>& database) {
     return true;
 }
 
-// ================================================================
-// 6) MAIN — arma los árboles UNA sola vez y levanta el servidor
-// ================================================================
 int main() {
     std::vector<Movie> database;
 
@@ -383,13 +363,11 @@ int main() {
     for (auto& f : prof_futures) f.wait();
     std::cout << "Perfiles de recomendacion listos.\n";
 
-    WebSessionManager& session = WebSessionManager::getInstance();   // Singleton y Observer: una sola sesion global
-                              // suficiente para la maqueta de exposicion.
+    // singleton y observer
+    WebSessionManager& session = WebSessionManager::getInstance();
 
     httplib::Server svr;
 
-    // ---- CORS: permite que index.html (abierto como archivo o servido
-    //      aparte) llame a este servidor desde otro origen ----
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -401,16 +379,14 @@ int main() {
         return httplib::Server::HandlerResponse::Unhandled;
     });
 
-    // ---- GET /api/health ----
+    // GET /api/health
     svr.Get("/api/health", [&](const httplib::Request&, httplib::Response& res) {
         std::ostringstream j;
         j << "{\"status\":\"ok\",\"movies\":" << database.size() << "}";
         res.set_content(j.str(), "application/json");
     });
 
-    // ---- GET /api/search?q=...&limit=100 ----
-    // Usa ranked_search() (Suffix Tree por titulo/director/cast/genero),
-    // exactamente la misma funcion que usa la version de consola.
+    // GET /api/search
     svr.Get("/api/search", [&](const httplib::Request& req, httplib::Response& res) {
         std::string rawQuery = req.has_param("q") ? req.get_param_value("q") : "";
         size_t limit = 100;
@@ -422,7 +398,6 @@ int main() {
 
         std::vector<int> results;
         if (query.empty()) {
-            // sin query -> devuelve un listado general (los primeros N)
             for (int i = 0; i < static_cast<int>(database.size()) && results.size() < limit; i++)
                 results.push_back(i);
         } else {
@@ -432,7 +407,7 @@ int main() {
         res.set_content(movie_list_json(results, database, session, limit), "application/json");
     });
 
-    // ---- GET /api/movies/:id ----
+    // GET /api/movies/:id
     svr.Get(R"(/api/movies/(\d+))", [&](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
         if (id < 0 || id >= static_cast<int>(database.size())) {
@@ -443,7 +418,7 @@ int main() {
         res.set_content(movie_detail_json(id, session), "application/json");
     });
 
-    // ---- POST /api/movies/:id/like  (toggle) ----
+    // POST /api/movies/:id/like
     svr.Post(R"(/api/movies/(\d+)/like)", [&](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
         if (id < 0 || id >= static_cast<int>(database.size())) {
@@ -461,7 +436,7 @@ int main() {
         res.set_content(j.str(), "application/json");
     });
 
-    // ---- POST /api/movies/:id/watch-later  (toggle) ----
+    // POST /api/movies/:id/watch-later
     svr.Post(R"(/api/movies/(\d+)/watch-later)", [&](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
         if (id < 0 || id >= static_cast<int>(database.size())) {
@@ -479,13 +454,13 @@ int main() {
         res.set_content(j.str(), "application/json");
     });
 
-    // ---- GET /api/watch-later ----
+    // GET /api/watch-later
     svr.Get("/api/watch-later", [&](const httplib::Request&, httplib::Response& res) {
         auto ids = set_to_vector(session.getWatchLaterMovies());
         res.set_content(movie_list_json(ids, database, session, ids.size()), "application/json");
     });
 
-    // ---- GET /api/recommendations?limit=20 ----
+    // GET /api/recommendations
     svr.Get("/api/recommendations", [&](const httplib::Request& req, httplib::Response& res) {
         size_t limit = 20;
         if (req.has_param("limit")) {
