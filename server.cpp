@@ -1,57 +1,17 @@
-// ================================================================
-// server.cpp — Servidor HTTP para la Plataforma de Streaming
-// ----------------------------------------------------------------
-// Reutiliza TAL CUAL la lógica de patrones_de_streaming.cpp:
-//   - GeneralizedSuffixTree (búsqueda)
-//   - MovieRenderer / Decorator (SynopsisDecorator, ActionButtonsDecorator)
-//   - UserActionObserver (patrón Observer)
-//   - ranked_search, recommend_movies, build_content_profile, etc.
-//
-// Lo único que cambia es la "capa de presentación": en vez de
-// std::cin/std::cout (ConsoleUI), este archivo expone la misma
-// lógica a través de endpoints HTTP que devuelven JSON, para que
-// el frontend (index.html/app.js) pueda consumirlos con fetch().
-//
-// Compilar (Linux/Mac):
-//   g++ -std=c++17 -O2 -pthread server.cpp -o server
-// Compilar (Windows con MinGW):
-//   g++ -std=c++17 -O2 server.cpp -o server.exe -lws2_32
-//
-// Ejecutar (desde la carpeta que contiene server.cpp y data/):
-//   ./server
-//   -> Servidor en http://localhost:8080
-// ================================================================
-
-// En Windows/MinGW, _WIN32_WINNT suele quedar en un valor viejo (XP/7)
-// si no se define explícitamente, y httplib.h exige Windows 10+.
-// Debe definirse ANTES de cualquier #include que arrastre <windows.h>.
 #ifdef _WIN32
   #ifdef _WIN32_WINNT
     #undef _WIN32_WINNT
   #endif
-  #define _WIN32_WINNT 0x0A00   // Windows 10
-  #define NOMINMAX               // evita conflictos con std::min/std::max
+  #define _WIN32_WINNT 0x0A00   
+  #define NOMINMAX             
 #endif
 
-#include "patrones_de_streaming.cpp"   // Movie, normalize_text, read_csv_record,
-                                        // GeneralizedSuffixTree, ranked_search,
-                                        // build_content_profile, jaccard_similarity,
-                                        // UserActionObserver, split_words...
-#include "httplib.h"                   // https://github.com/yhirose/cpp-httplib (header-only)
+#include "patrones_de_streaming.cpp"
+#include "httplib.h"   
 
 #include <sstream>
 #include <mutex>
 
-// ================================================================
-// 1) DATOS "DE VITRINA" (sin normalizar) PARA MOSTRAR EN EL FRONTEND
-// ----------------------------------------------------------------
-// `database` (definido más abajo) guarda el texto YA normalizado
-// (minúsculas, sin tildes) porque así lo necesita el Suffix Tree
-// para indexar/buscar. Pero mostrarle al usuario "titanic" en vez
-// de "Titanic" se ve mal, así que guardamos en paralelo una copia
-// con el texto original tal cual viene del CSV, indexada por el
-// mismo id, solo para las respuestas JSON.
-// ================================================================
 struct DisplayInfo {
     std::string year;
     std::string title;
@@ -65,22 +25,13 @@ std::vector<DisplayInfo> displayDb;
 
 std::string fallback(const std::string& s, const std::string& def = "Desconocido") {
     if (s.empty()) return def;
-    // "Unknown" viene tal cual del CSV en varias columnas
     std::string lower = s;
     for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     if (lower == "unknown") return def;
     return s;
 }
 
-// ================================================================
-// 2) OBSERVER PARA LA SESIÓN HTTP
-// ----------------------------------------------------------------
-// Igual que UserMovieManager del archivo original (implementa
-// UserActionObserver -> onLike / onWatchLater), pero además permite
-// "des-marcar" (removeLike / removeWatchLater), necesario porque en
-// la web el usuario puede tocar el botón Like dos veces para
-// alternar el estado, algo que la versión de consola no requería.
-// ================================================================
+
 class WebSessionManager : public UserActionObserver {
 private:
     SessionManager<int> likedMovies;
@@ -176,7 +127,6 @@ std::vector<int> recommend_from_sets(
                 if (score > 0.0) local_scored.push_back({candidate.id, score});
             }
 
-            // Unimos los resultados locales al vector global usando un mutex
             std::lock_guard<std::mutex> lock(mtx);
             scored.insert(scored.end(), local_scored.begin(), local_scored.end());
         }));
