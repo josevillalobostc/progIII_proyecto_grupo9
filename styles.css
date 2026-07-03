@@ -1,9 +1,3 @@
-/* ============================================================
-   TOKENS DE DISEÑO
-   Paleta oscura tipo streaming: fondo casi negro azulado,
-   tarjetas en gris-carbón, acento carmesí (acción principal)
-   y acento dorado (Like / favoritos).
-============================================================= */
 :root {
   --bg: #0a0d12;
   --bg-elevated: #10141b;
@@ -14,9 +8,9 @@
   --text-dim: #9aa4b5;
   --text-faint: #626c7e;
 
-  --accent: #e63950;       /* carmesí — acción principal */
+  --accent: #e63950;
   --accent-hover: #ff4d63;
-  --gold: #e0b13a;         /* like / favoritos */
+  --gold: #e0b13a;
   --gold-hover: #f0c356;
 
   --radius-sm: 6px;
@@ -38,9 +32,6 @@ html, body {
   min-height: 100vh;
 }
 
-/* ============================================================
-   BARRA SUPERIOR
-============================================================= */
 .topbar {
   display: flex;
   align-items: center;
@@ -104,9 +95,7 @@ html, body {
 .search-input::placeholder { color: var(--text-faint); }
 .search-input:focus { border-color: var(--accent); }
 
-/* ============================================================
-   BOTONES
-============================================================= */
+
 .btn {
   border: none;
   border-radius: var(--radius-sm);
@@ -155,9 +144,7 @@ html, body {
   border-radius: var(--radius-sm);
 }
 
-/* ============================================================
-   LAYOUT PRINCIPAL / SECCIONES
-============================================================= */
+
 .main {
   padding: 28px 32px 60px;
   max-width: 1280px;
@@ -186,9 +173,7 @@ html, body {
   color: var(--text-faint);
 }
 
-/* ============================================================
-   TARJETAS
-============================================================= */
+
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -266,16 +251,13 @@ html, body {
 
 .movie-card-actions .btn { 
   min-width: 0; 
-  padding: 6px 4px; /* Reducimos un poco el padding lateral para que encajen mejor */
+  padding: 6px 4px;
 }
 
 .movie-card-actions .btn:first-child {
   grid-column: 1 / -1; /* El primer botón (Sinopsis) ocupa toda la fila */
 }
 
-/* ============================================================
-   PAGINACIÓN
-============================================================= */
 .pagination {
   display: flex;
   align-items: center;
@@ -289,9 +271,6 @@ html, body {
   color: var(--text-dim);
 }
 
-/* ============================================================
-   MODAL
-============================================================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -363,9 +342,6 @@ html, body {
   gap: 10px;
 }
 
-/* ============================================================
-   FOOTER
-============================================================= */
 .footer {
   text-align: center;
   padding: 20px;
@@ -374,9 +350,6 @@ html, body {
   border-top: 1px solid var(--border);
 }
 
-/* ============================================================
-   RESPONSIVE
-============================================================= */
 @media (max-width: 640px) {
   .topbar {
     flex-direction: column;
