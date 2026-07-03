@@ -258,13 +258,20 @@ html, body {
 .movie-meta span { white-space: nowrap; }
 
 .movie-card-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   margin-top: auto;
-  flex-wrap: wrap;
 }
 
-.movie-card-actions .btn { flex: 1; min-width: 0; }
+.movie-card-actions .btn { 
+  min-width: 0; 
+  padding: 6px 4px; /* Reducimos un poco el padding lateral para que encajen mejor */
+}
+
+.movie-card-actions .btn:first-child {
+  grid-column: 1 / -1; /* El primer botón (Sinopsis) ocupa toda la fila */
+}
 
 /* ============================================================
    PAGINACIÓN

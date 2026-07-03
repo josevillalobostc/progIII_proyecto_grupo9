@@ -83,49 +83,62 @@ std::string fallback(const std::string& s, const std::string& def = "Desconocido
 // ================================================================
 class WebSessionManager : public UserActionObserver {
 private:
-    std::unordered_set<int> likedMovies;
-    std::unordered_set<int> watchLaterMovies;
+    SessionManager<int> likedMovies;
+    SessionManager<int> watchLaterMovies;
     mutable std::mutex mtx;
 
+    // 1. Constructor privado (nadie más puede crear otra sesión)
+    WebSessionManager() = default;
+
 public:
+    // 2. Prevenir clonación o copias de la instancia
+    WebSessionManager(const WebSessionManager&) = delete;
+    WebSessionManager& operator=(const WebSessionManager&) = delete;
+
+    // 3. Punto de acceso global (Patrón Singleton)
+    static WebSessionManager& getInstance() {
+        static WebSessionManager instance; // C++11 garantiza que esto es "thread-safe"
+        return instance;
+    }
+
     void onLike(int movieID) override {
         std::lock_guard<std::mutex> lock(mtx);
-        likedMovies.insert(movieID);
+        likedMovies.add(movieID);
     }
 
     void onWatchLater(int movieID) override {
         std::lock_guard<std::mutex> lock(mtx);
-        watchLaterMovies.insert(movieID);
+        watchLaterMovies.add(movieID);
     }
 
     void removeLike(int movieID) {
         std::lock_guard<std::mutex> lock(mtx);
-        likedMovies.erase(movieID);
+        likedMovies.remove(movieID);
     }
 
     void removeWatchLater(int movieID) {
         std::lock_guard<std::mutex> lock(mtx);
-        watchLaterMovies.erase(movieID);
+        watchLaterMovies.remove(movieID);
     }
 
     bool isLiked(int movieID) const {
         std::lock_guard<std::mutex> lock(mtx);
-        return likedMovies.count(movieID) > 0;
+        return likedMovies.contains(movieID);
     }
 
     bool isWatchLater(int movieID) const {
         std::lock_guard<std::mutex> lock(mtx);
-        return watchLaterMovies.count(movieID) > 0;
+        return watchLaterMovies.contains(movieID);
     }
 
     std::unordered_set<int> getLikedMovies() const {
         std::lock_guard<std::mutex> lock(mtx);
-        return likedMovies;
+        return likedMovies.getItems();
     }
 
     std::unordered_set<int> getWatchLaterMovies() const {
         std::lock_guard<std::mutex> lock(mtx);
-        return watchLaterMovies;
+        return watchLaterMovies.getItems();
     }
 };
 
@@ -134,6 +147,8 @@ public:
 //    archivo original, adaptada para recibir sets sueltos en vez
 //    de un UserMovieManager, ya que WebSessionManager permite remover)
 // ================================================================
+std::vector<std::unordered_set<std::string>> precomputed_profiles;
+
 std::vector<int> recommend_from_sets(
     const std::vector<Movie>& database,
     const std::unordered_set<int>& liked,
@@ -141,23 +156,41 @@ std::vector<int> recommend_from_sets(
 ) {
     if (liked.empty()) return {};
 
-    std::unordered_map<int, std::unordered_set<std::string>> profiles;
-    for (const auto& movie : database) {
-        profiles[movie.id] = build_content_profile(movie);
-    }
-
     std::vector<std::pair<int, double>> scored;
+    std::mutex mtx;
 
-    for (const auto& candidate : database) {
-        if (liked.count(candidate.id) || later.count(candidate.id)) continue;
+    // Paralelizamos el cálculo de puntajes (jaccard_similarity)
+    int num_threads = std::thread::hardware_concurrency();
+    if(num_threads == 0) num_threads = 4;
+    std::vector<std::future<void>> futures;
+    int chunk_size = database.size() / num_threads;
 
-        double score = 0.0;
-        for (int likedID : liked) {
-            score += jaccard_similarity(profiles[candidate.id], profiles[likedID]);
-        }
+    for (int i = 0; i < num_threads; i++) {
+        int start = i * chunk_size;
+        int end = (i == num_threads - 1) ? database.size() : start + chunk_size;
 
-        if (score > 0.0) scored.push_back({candidate.id, score});
+        futures.push_back(std::async(std::launch::async, [&, start, end]() {
+            std::vector<std::pair<int, double>> local_scored;
+
+            for (int j = start; j < end; j++) {
+                const auto& candidate = database[j];
+                if (liked.count(candidate.id) || later.count(candidate.id)) continue;
+
+                double score = 0.0;
+                for (int likedID : liked) {
+                    score += jaccard_similarity(precomputed_profiles[candidate.id], precomputed_profiles[likedID]);
+                }
+
+                if (score > 0.0) local_scored.push_back({candidate.id, score});
+            }
+
+            // Unimos los resultados locales al vector global usando un mutex
+            std::lock_guard<std::mutex> lock(mtx);
+            scored.insert(scored.end(), local_scored.begin(), local_scored.end());
+        }));
     }
+
+    for (auto& f : futures) f.wait();
 
     std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) {
         if (a.second != b.second) return a.second > b.second;
@@ -331,7 +364,26 @@ int main() {
     buildGenre.wait();
     std::cout << "Arboles listos.\n";
 
-    WebSessionManager session;   // Observer: una sola sesion global (sin login),
+    std::cout << "Precalculando perfiles para el motor de recomendaciones en paralelo...\n";
+    precomputed_profiles.resize(database.size());
+    int num_threads = std::thread::hardware_concurrency();
+    if(num_threads == 0) num_threads = 4;
+    std::vector<std::future<void>> prof_futures;
+    int chunk_size = database.size() / num_threads;
+
+    for (int i = 0; i < num_threads; i++) {
+        int start = i * chunk_size;
+        int end = (i == num_threads - 1) ? database.size() : start + chunk_size;
+        prof_futures.push_back(std::async(std::launch::async, [&database, start, end]() {
+            for (int j = start; j < end; j++) {
+                precomputed_profiles[j] = build_content_profile(database[j]);
+            }
+        }));
+    }
+    for (auto& f : prof_futures) f.wait();
+    std::cout << "Perfiles de recomendacion listos.\n";
+
+    WebSessionManager& session = WebSessionManager::getInstance();   // Singleton y Observer: una sola sesion global
                               // suficiente para la maqueta de exposicion.
 
     httplib::Server svr;
