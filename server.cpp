@@ -38,15 +38,22 @@ private:
     SessionManager<int> watchLaterMovies;
     mutable std::mutex mtx;
 
+    static WebSessionManager* instance;
+    static std::mutex singleton_mutex;
+
     WebSessionManager() = default;
 
 public:
     WebSessionManager(const WebSessionManager&) = delete;
     WebSessionManager& operator=(const WebSessionManager&) = delete;
 
-  // SINGLETON
-    static WebSessionManager& getInstance() {
-        static WebSessionManager instance;
+    static WebSessionManager* getInstance() {
+        if (instance == nullptr) {
+            std::lock_guard<std::mutex> lock(singleton_mutex);
+            if (instance == nullptr) {
+                instance = new WebSessionManager();
+            }
+        }
         return instance;
     }
 
@@ -90,6 +97,9 @@ public:
         return watchLaterMovies.getItems();
     }
 };
+
+WebSessionManager* WebSessionManager::instance = nullptr;
+std::mutex WebSessionManager::singleton_mutex;
 
 std::vector<std::unordered_set<std::string>> precomputed_profiles;
 
@@ -314,7 +324,8 @@ int main() {
     std::cout << "Perfiles de recomendacion listos.\n";
 
     // singleton y observer
-    WebSessionManager& session = WebSessionManager::getInstance();
+    WebSessionManager* sessionPtr = WebSessionManager::getInstance();
+    WebSessionManager& session = *sessionPtr;
 
     httplib::Server svr;
 
@@ -379,7 +390,7 @@ int main() {
         if (session.isLiked(id)) {
             session.removeLike(id);
         } else {
-            session.onLike(id); // dispara el Observer, igual que ConsoleUI::notifyLike
+            session.onLike(id); // dispara el Observer
         }
         std::ostringstream j;
         j << "{\"id\":" << id << ",\"liked\":" << (session.isLiked(id) ? "true" : "false") << "}";
